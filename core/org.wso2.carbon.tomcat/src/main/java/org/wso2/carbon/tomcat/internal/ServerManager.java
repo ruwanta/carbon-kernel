@@ -98,11 +98,6 @@ public class ServerManager {
             resolver = SecretResolverFactory.create(config, true);
             //resolves protected passwords
             resolveSecuredConfig(config, null);
-            if (config.getAttributes().getNamedItem(XMLConstants.XMLNS_ATTRIBUTE + SecurityConstants.NS_SEPARATOR +
-                    SVNS) != null) {
-                config.getAttributes().removeNamedItem(XMLConstants.XMLNS_ATTRIBUTE + SecurityConstants.NS_SEPARATOR +
-                        SVNS);
-            }
             // creates new input stream from processed DOM element
             InputStream newStream = domToInputStream(config);
             

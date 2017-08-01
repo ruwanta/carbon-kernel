@@ -21,6 +21,7 @@ import org.wso2.carbon.server.LauncherConstants;
 
 import java.io.*;
 import java.net.MalformedURLException;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -672,8 +673,7 @@ public class Utils {
         if (carbonRepo == null) {
             carbonRepo = System.getProperty("carbon.home") + File.separator + "repository";
         }
-        String bundleConfigDirLocation = carbonRepo + File.separator + "conf" + File.separator +
-                "etc" + File.separator + "bundle-config";
+        String bundleConfigDirLocation = Paths.get(carbonRepo, "conf", "etc", "bundle-config").toString();
         File bundleConfigDir = new File(bundleConfigDirLocation);
         if(!bundleConfigDir.exists()) {
           return null;
