@@ -1144,7 +1144,6 @@ public final class RegistryUtils {
 	// Do tenant-specific initialization.
 	public static void initializeTenant(RegistryService registryService, int tenantId)
 	                                                                                  throws RegistryException {
-	    log.info("Loading tenant registry for tenant " + tenantId);
 		try {
 			UserRegistry systemRegistry = registryService.getConfigSystemRegistry();
 			if (systemRegistry.getRegistryContext() != null) {
@@ -1177,7 +1176,6 @@ public final class RegistryUtils {
 				                                          registryContext.getServicePath()));
 				// Adding service configuration resources.
 				addServiceConfigResources(systemRegistry);
-				log.info("Tenant registry for tenant " + tenantId +" loaded.");
 			} finally {
 				CurrentSession.removeTenantId();
 			}
@@ -1234,10 +1232,6 @@ public final class RegistryUtils {
                 Filter.EXECUTE_QUERY, Filter.GET_RESOURCE_PATHS_WITH_TAG,
                 Filter.GET_REGISTRY_CONTEXT, Filter.REMOVE_LINK };
     }
-
-
-
-
 
     /**
      * Method to add the resources where the service configuration are stored.

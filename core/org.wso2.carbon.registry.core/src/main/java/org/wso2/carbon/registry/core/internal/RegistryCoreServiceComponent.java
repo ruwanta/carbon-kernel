@@ -859,7 +859,6 @@ public class RegistryCoreServiceComponent {
             if (initializedTenants.contains(tenantId)) {
                 return false;
             }
-            log.info("Tenant " + tenantId + " add to initialized loading tenant registry");
             return true;
         }
 
