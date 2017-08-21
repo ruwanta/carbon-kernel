@@ -28,11 +28,6 @@
 <%
     String httpMethod = request.getMethod().toLowerCase();
 
-    if (!"post".equals(httpMethod)) {
-        response.sendError(405);
-        return;
-    }
-
     String backendServerURL = CarbonUIUtil.getServerURL(config.getServletContext(), session);
     ConfigurationContext configContext =
             (ConfigurationContext) config.getServletContext().getAttribute(CarbonConstants.CONFIGURATION_CONTEXT);

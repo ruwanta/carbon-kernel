@@ -37,8 +37,6 @@
 <script type="text/javascript" src="../admin/js/main.js"></script>
 
 <script type="text/javascript" src="js/tableTree.js" ></script>
-<script type="text/javascript" src="js/jquery-1.2.6.min.js"></script>
-<script type="text/javascript" src="js/jquery-ui-1.6.custom.min.js"></script>
 <script type="text/javascript" src="js/jquery.hoverIntent.js"></script>
 <script type="text/javascript" src="js/jquery.cluetip.js"></script>
 <script type="text/javascript" src="js/comp-mgt-utils.js"></script>
@@ -90,8 +88,6 @@
         request="<%=request%>" />
 
 <link type="text/css" href="css/ui.all.css" rel="stylesheet" />
-<script type="text/javascript" src="js/jquery-1.2.6.min.js"></script>
-<script type="text/javascript" src="js/jquery-ui-1.6.custom.min.js"></script>
 <script type="text/javascript" src="js/jquery.hoverIntent.js"></script>
 <script type="text/javascript" src="js/jquery.cluetip.js"></script>
 <script type="text/javascript" src="js/comp-mgt-utils.js"></script>
