@@ -16,27 +16,15 @@
 
 package org.wso2.carbon.registry.core.utils;
 
-import javax.cache.Cache;
-import javax.cache.CacheManager;
-import javax.cache.Caching;
-
 import org.apache.axiom.om.OMElement;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.CarbonConstants;
 import org.wso2.carbon.base.ServerConfiguration;
 import org.wso2.carbon.context.CarbonContext;
-import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.registry.api.GhostResource;
-import org.wso2.carbon.registry.core.*;
 import org.wso2.carbon.registry.core.Collection;
-import org.wso2.carbon.registry.core.CollectionImpl;
-import org.wso2.carbon.registry.core.Registry;
-import org.wso2.carbon.registry.core.RegistryConstants;
-import org.wso2.carbon.registry.core.Resource;
-import org.wso2.carbon.registry.core.ResourceIDImpl;
-import org.wso2.carbon.registry.core.ResourceImpl;
-import org.wso2.carbon.registry.core.ResourcePath;
+import org.wso2.carbon.registry.core.*;
 import org.wso2.carbon.registry.core.caching.RegistryCacheEntry;
 import org.wso2.carbon.registry.core.caching.RegistryCacheKey;
 import org.wso2.carbon.registry.core.config.Mount;
@@ -69,6 +57,9 @@ import org.wso2.carbon.utils.CarbonUtils;
 import org.wso2.carbon.utils.ServerConstants;
 import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 
+import javax.cache.Cache;
+import javax.cache.CacheManager;
+import javax.cache.Caching;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 import java.io.*;
@@ -1137,7 +1128,7 @@ public final class RegistryUtils {
         matcher.setPattern(matchedWith);
         return matcher;
     }
-    
+
 	// Sets-up the media types for this instance.
 	public static void setupMediaTypes(RegistryService registryService, int tenantId) {
 		try {
@@ -1241,10 +1232,6 @@ public final class RegistryUtils {
                 Filter.EXECUTE_QUERY, Filter.GET_RESOURCE_PATHS_WITH_TAG,
                 Filter.GET_REGISTRY_CONTEXT, Filter.REMOVE_LINK };
     }
-
-    
-
-   
 
     /**
      * Method to add the resources where the service configuration are stored.
@@ -1441,7 +1428,7 @@ public final class RegistryUtils {
             // we are already checking the unchrooted paths, so no more work
             return localPath;
         }
-        
+
         String chrootPrefix = getChrootPrefix();
         if (chrootPrefix == null) {
             // no chroot defined or it equals to root.
@@ -1951,7 +1938,7 @@ public final class RegistryUtils {
 
     public static String getExtensionLibDirectoryPath() {
         CarbonContext carbonContext =
-               CarbonContext.getThreadLocalCarbonContext(); 
+               CarbonContext.getThreadLocalCarbonContext();
         int tempTenantId = carbonContext.getTenantId();
         return ((tempTenantId != MultitenantConstants.INVALID_TENANT_ID &&
         		tempTenantId != MultitenantConstants.SUPER_TENANT_ID) ?
@@ -1996,4 +1983,3 @@ public final class RegistryUtils {
         return bytes;
     }
 }
-
