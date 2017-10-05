@@ -172,6 +172,8 @@ public class ReadWriteLDAPUserStoreManager extends ReadOnlyLDAPUserStoreManager 
 		 */
         initUserRolesCache();
 
+        initUserCache(tenantId);
+
         if (log.isDebugEnabled()) {
             log.debug("Read-Write UserStoreManager initialization ended "
                     + System.currentTimeMillis());
@@ -581,7 +583,7 @@ public class ReadWriteLDAPUserStoreManager extends ReadOnlyLDAPUserStoreManager 
                 subDirContext = (DirContext) mainDirContext.lookup(userSearchBase);
                 subDirContext.destroySubcontext(userDN);
             }
-            userCache.remove(userName);
+            removeFromUserCache(userName);
         } catch (NamingException e) {
             String errorMessage = "Error occurred while deleting the user : " + userName;
             if (log.isDebugEnabled()) {
@@ -881,7 +883,7 @@ public class ReadWriteLDAPUserStoreManager extends ReadOnlyLDAPUserStoreManager 
                 //remove user DN from cache if changing username attribute
                 if (realmConfig.getUserStoreProperty(LDAPConstants.USER_NAME_ATTRIBUTE).equals
                         (attributeName)) {
-                    userCache.remove(userName);
+                    removeFromUserCache(userName);
                 }
                 // if uid attribute value contains domain name, remove domain
                 // name
@@ -2000,6 +2002,10 @@ public class ReadWriteLDAPUserStoreManager extends ReadOnlyLDAPUserStoreManager 
                 "Name of the class that implements the count functionality");
         setAdvancedProperty(LDAPConstants.LDAP_ATTRIBUTES_BINARY, "LDAP binary attributes", " ",
                 LDAPBinaryAttributesDescription);
+        setAdvancedProperty(LDAPConstants.USER_CACHE_EXPIRY_MILLISECONDS, USER_CACHE_EXPIRY_TIME_ATTRIBUTE_NAME, "0" ,
+                USER_CACHE_EXPIRY_TIME_ATTRIBUTE_DESCRIPTION);
+        setAdvancedProperty(LDAPConstants.USER_CACHE_CAPACITY, USER_CACHE_CAPACITY_ATTRIBUTE_NAME, ""+MAX_USER_CACHE ,
+                USER_CACHE_CAPACITY_ATTRIBUTE_DESCRIPTION);
     }
 
 //
