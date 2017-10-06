@@ -25,7 +25,6 @@ import org.wso2.carbon.CarbonConstants;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.caching.impl.CacheImpl;
 import org.wso2.carbon.caching.impl.CachingConstants;
-import org.wso2.carbon.caching.impl.Util;
 import org.wso2.carbon.context.CarbonContext;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.user.api.Properties;
@@ -108,21 +107,20 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
     protected static final String USER_CACHE_CAPACITY_ATTRIBUTE_NAME = "User Cache Capacity";
     protected static final String USER_CACHE_EXPIRY_TIME_ATTRIBUTE_DESCRIPTION =
             "Configure the user cache expiry in milliseconds. "
-                    + "Value of 0 or empty cause the system wide expiry to take effect";
+                    + "Values  {0: expire immediately, -1: never expire, '': i.e. empty, system default}.";
     protected static final String USER_CACHE_CAPACITY_ATTRIBUTE_DESCRIPTION = "Configure the user cache capacity. "
             + "The actual number of objects held in the cache at a time may not slightly higher at times.";
     //Authenticating to LDAP via Anonymous Bind
     private static final String USE_ANONYMOUS_BIND = "AnonymousBind";
 
-
-    private long userCacheExpirytMilliseconds = 0L; //Default: expire with default system wide -cache expiry
+    private String cacheExpiryTimeAttribute = ""; //Default: expire with default system wide cache expiry
     private int userCacheSize = MAX_USER_CACHE; //Default: expire cache in one minute
-    private Cache expiringUserCache;
+    private Cache<String, LdapName> userDnCache;
     protected CacheManager cacheManager;
-    protected String cacheOwnerTenantDomain;
+    protected String tenantDomain;
 
     /**
-     * The use of this Map is Deprecated. Please use expiringUserCache.
+     * The use of this Map is Deprecated. Please use userDnCache.
      * Retained so that any extended class will function as it used to be.
      */
     @Deprecated
@@ -230,7 +228,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
          */
         initUserRolesCache();
 
-        initUserCache(tenantId);
+        initUserCache();
 
         if (log.isDebugEnabled()) {
             log.debug("Initialization Ended " + System.currentTimeMillis());
@@ -364,14 +362,6 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         }
 
         String cacheExpiryTimeAttribute = realmConfig.getUserStoreProperty(LDAPConstants.USER_CACHE_EXPIRY_MILLISECONDS);
-        if (cacheExpiryTimeAttribute != null) {
-            try {
-                userCacheExpirytMilliseconds = Long.parseLong(cacheExpiryTimeAttribute);
-            } catch (NumberFormatException nfe) {
-                log.error("Could not convert the cache expiry time to Number (long) : " + cacheExpiryTimeAttribute,
-                        nfe);
-            }
-        }
 
         String cacheCapacityAttribute = realmConfig.getUserStoreProperty(LDAPConstants.USER_CACHE_CAPACITY);
         if (cacheCapacityAttribute != null) {
@@ -419,7 +409,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
             boolean bValue = false;
             // check cached user DN first.
             String name = null;
-            LdapName ldn = (LdapName) getFromUserCache(userName);
+            LdapName ldn = getFromUserCache(userName);
             if (ldn != null) {
                 name = ldn.toString();
                 try {
@@ -534,7 +524,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
 
         String userAttributeSeparator = ",";
         String userDN = null;
-        LdapName ldn = (LdapName)getFromUserCache(userName);
+        LdapName ldn = getFromUserCache(userName);
 
         if (ldn == null) {
             // read list of patterns from user-mgt.xml
@@ -794,7 +784,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         try {
             String searchBase = null;
             String userDN = null;
-            LdapName ldn = (LdapName)getFromUserCache(userName);
+            LdapName ldn = getFromUserCache(userName);
             if(ldn == null){
                 String userDNPattern = realmConfig.getUserStoreProperty(LDAPConstants.USER_DN_PATTERN);
                 if (userDNPattern != null && userDNPattern.trim().length() > 0) {
@@ -1969,7 +1959,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
                                     memberOfProperty);
                 } else {
                     // use cache
-                    LdapName ldn = (LdapName)getFromUserCache(userName);
+                    LdapName ldn = getFromUserCache(userName);
                     if (ldn != null) {
                         searchBase = ldn.toString();
                     } else {
@@ -2125,7 +2115,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      */
     protected String getNameInSpaceForUserName(String userName) throws UserStoreException {
         // check the cache first
-        LdapName ldn = (LdapName)getFromUserCache(userName);
+        LdapName ldn = getFromUserCache(userName);
         if (ldn != null) {
             return ldn.toString();
         }
@@ -2654,7 +2644,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
                                 memberOfProperty);
             } else {
                 // use cache
-                LdapName ldn = (LdapName)getFromUserCache(userName);
+                LdapName ldn = getFromUserCache(userName);
                 if (ldn != null) {
                     searchBases = ldn.toString();
                 } else {
@@ -3482,9 +3472,9 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
                 "Name of the class that implements the count functionality");
         setAdvancedProperty(LDAPConstants.LDAP_ATTRIBUTES_BINARY, "LDAP binary attributes", " ",
                 LDAPBinaryAttributesDescription);
-        setAdvancedProperty(LDAPConstants.USER_CACHE_EXPIRY_MILLISECONDS, USER_CACHE_EXPIRY_TIME_ATTRIBUTE_NAME, "0" ,
+        setAdvancedProperty(LDAPConstants.USER_CACHE_EXPIRY_MILLISECONDS, USER_CACHE_EXPIRY_TIME_ATTRIBUTE_NAME, "",
                 USER_CACHE_EXPIRY_TIME_ATTRIBUTE_DESCRIPTION);
-        setAdvancedProperty(LDAPConstants.USER_CACHE_CAPACITY, USER_CACHE_CAPACITY_ATTRIBUTE_NAME, ""+MAX_USER_CACHE ,
+        setAdvancedProperty(LDAPConstants.USER_CACHE_CAPACITY, USER_CACHE_CAPACITY_ATTRIBUTE_NAME, "" + MAX_USER_CACHE,
                 USER_CACHE_CAPACITY_ATTRIBUTE_DESCRIPTION);
     }
 
@@ -3499,141 +3489,161 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      * Initialize the user cache.
      * Uses Javax cache. Any existing cache with the same name will be removed and re-attach an new one.
      */
-    protected void initUserCache(int tenantId) throws UserStoreException {
+    protected void initUserCache() throws UserStoreException {
+        if (userCacheSize <= 0) {
+            // Do not create a cache when the cache size is not positive.
+            return;
+        }
+
         RealmService realmService = UserStoreMgtDSComponent.getRealmService();
-        String tenantDomain = null;
         if (realmService != null && realmService.getTenantManager() != null) {
             try {
                 tenantDomain = realmService.getTenantManager().getDomain(tenantId);
+                if (log.isDebugEnabled()) {
+                    log.debug("Tenant domain : " + tenantDomain + " found for the tenant ID : " + tenantId);
+                }
             } catch (org.wso2.carbon.user.api.UserStoreException e) {
                 throw new UserStoreException("Could not get the tenant domain for tenant id : " + tenantId, e);
             }
         }
 
+        if (tenantDomain == null && tenantId == MultitenantConstants.SUPER_TENANT_ID) {
+            // Assign super-tenant domain, If this is super tenant and the tenant domain is not yet known.
+            tenantDomain = MultitenantConstants.SUPER_TENANT_DOMAIN_NAME;
+        }
+
         if (tenantDomain == null) {
-            // Check if the call is made in a tenant mode. Otherwise treat this as created in Super-Tenant mode, as this
-            // introduction of carbon cache should work even without the tenant in the thread local for
-            // backward compatibility.
-            tenantId = org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_ID;
-            cacheOwnerTenantDomain = org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_DOMAIN_NAME;
-        } else {
-            cacheOwnerTenantDomain = tenantDomain;
+            // Do not create the cache if there is no tenant domain, which means the given tenant ID is invalid.
+            // Any cache access i.e. getX, putX or deleteX will simply behave as no-op in this case.
+            if (log.isDebugEnabled()) {
+                log.debug("Could not find a tenant domain for the tenant ID : " + tenantId
+                        + ". Not initializing the User DN cache.");
+            }
+            return;
         }
         try {
-            startTenantFlow(tenantId, cacheOwnerTenantDomain);
+            startTenantFlow();
             String cacheName = USER_CACHE_NAME_PREFIX + this.hashCode();
             cacheManager = Caching.getCacheManagerFactory().getCacheManager(USER_CACHE_MANAGER);
 
             // Unconditionally remove the cache, so that it can be reconfigured.
             cacheManager.removeCache(cacheName);
 
+            long userCacheExpiryMilliseconds = 0L;
             //We set the User Cache expiry time if it is greater than or equal to zero.
             //Any negative or Zero value causes the cache to have system wide timeout.
-            if (userCacheExpirytMilliseconds > 0) {
+            boolean isCustomExpiryPresent = false;
+            if (StringUtils.isNotEmpty(cacheExpiryTimeAttribute)) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Cache expiry time : " + cacheExpiryTimeAttribute
+                            + " configured for the user DN cache having search base: " + userSearchBase);
+                }
+                try {
+                    userCacheExpiryMilliseconds = Long.parseLong(cacheExpiryTimeAttribute);
+                    isCustomExpiryPresent = true;
+                } catch (NumberFormatException nfe) {
+                    log.error("Could not convert the cache expiry time to Number (long) : " + cacheExpiryTimeAttribute
+                            + " . Will default to system wide expiry settings.", nfe);
+                }
+            }
+            if (isCustomExpiryPresent) {
+                // We use cache builder to create the cache with custom expiry values.
+                if (log.isDebugEnabled()) {
+                    log.debug("Using cache expiry time : " + userCacheExpiryMilliseconds
+                            + " configured for the user DN cache having search base: " + userSearchBase);
+                }
                 CacheBuilder cacheBuilder = cacheManager.createCacheBuilder(cacheName);
                 cacheBuilder.setExpiry(CacheConfiguration.ExpiryType.ACCESSED,
-                        new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpirytMilliseconds)).
+                        new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
                         setExpiry(CacheConfiguration.ExpiryType.MODIFIED,
-                                new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpirytMilliseconds)).
+                                new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
                         setStoreByValue(false);
-                expiringUserCache = cacheBuilder.build();
-                expiringUserCache.start();
+                userDnCache = cacheBuilder.build();
+                userDnCache.start();
             } else {
-                expiringUserCache = cacheManager.getCache(cacheName);
+                // We use system-wide settings to build the cache.
+                if (log.isDebugEnabled()) {
+                    log.debug("Using default configurations for the user DN cache, having search base : "
+                            + userSearchBase);
+                }
+                userDnCache = cacheManager.getCache(cacheName);
             }
 
-            if (userCacheSize > 0 && expiringUserCache instanceof CacheImpl) {
+            if (userCacheSize > 0 && userDnCache instanceof CacheImpl) {
                 //Set the cache size if it is positive non zero value.
                 //Set capacity method is only available on Impl.
-                ((CacheImpl) expiringUserCache).setCapacity(userCacheSize);
+                if (log.isDebugEnabled()) {
+                    log.debug(" Setting cache capacity : " + userCacheSize);
+                }
+                ((CacheImpl) userDnCache).setCapacity(userCacheSize);
             }
         } finally {
             PrivilegedCarbonContext.endTenantFlow();
         }
     }
 
-    protected void putToUserCache(String name, Object value) {
-        if(expiringUserCache == null) {
+    /**
+     * Puts the DN into the cache.
+     *
+     * @param name  the user name.
+     * @param value the LDAP name (DN)
+     */
+    protected void putToUserCache(String name, LdapName value) {
+        if (userDnCache == null) {
             //User cache may be null while initializing.
             return;
         }
-        String tenantDomain = Util.getTenantDomain();
-        boolean superTenantMode = false;
-        if (tenantDomain == null) {
-            //Do in Super tenant.
-            superTenantMode = true;
-        }
         try {
-            if (superTenantMode) {
-                startTenantFlow(org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_ID,
-                        org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
-            }
-            expiringUserCache.put(name, value);
+            startTenantFlow();
+            userDnCache.put(name, value);
         } finally {
-            if (superTenantMode) {
-                PrivilegedCarbonContext.endTenantFlow();
-            }
+            PrivilegedCarbonContext.endTenantFlow();
         }
     }
 
-    protected Object getFromUserCache(String userName) {
-        if(expiringUserCache == null) {
+    /**
+     * Returns the LDAP Name (DN) for the given user name, if it exists in the cache.
+     *
+     * @param userName
+     * @return cached DN, if exists. null if the cache does not contain the DN for the userName.
+     */
+    protected LdapName getFromUserCache(String userName) {
+        if (userDnCache == null) {
             //User cache may be null while initializing.
             return null;
         }
-        String tenantDomain = Util.getTenantDomain();
-        boolean superTenantMode = false;
-        if (tenantDomain == null) {
-            //Do in Super tenant.
-            superTenantMode = true;
-        }
         try {
-            if (superTenantMode) {
-                startTenantFlow(org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_ID,
-                        org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
-            }
-            return expiringUserCache.get(userName);
+            startTenantFlow();
+            return userDnCache.get(userName);
         } finally {
-            if (superTenantMode) {
-                PrivilegedCarbonContext.endTenantFlow();
-            }
+            PrivilegedCarbonContext.endTenantFlow();
         }
     }
 
     /**
      * Removes the cache entry given the user name.
+     *
      * @param userName the User name to remove.
      * @return true if removal was successful.
      */
     protected boolean removeFromUserCache(String userName) {
-        if(expiringUserCache == null) {
+        if (userDnCache == null) {
             //User cache may be null while initializing.
             //Return true as removal result is successfull when there is no cache. Nothing was held.
             return true;
         }
-        String tenantDomain = Util.getTenantDomain();
-        boolean superTenantMode = false;
-        if (tenantDomain == null) {
-            //Do in Super tenant.
-            superTenantMode = true;
-        }
         try {
-            if (superTenantMode) {
-                startTenantFlow(org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_ID,
-                        org.wso2.carbon.utils.multitenancy.MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
-            }
-            return expiringUserCache.remove(userName);
+            startTenantFlow();
+            return userDnCache.remove(userName);
         } finally {
-            if (superTenantMode) {
-                PrivilegedCarbonContext.endTenantFlow();
-            }
+            PrivilegedCarbonContext.endTenantFlow();
         }
     }
 
     /**
      * Common utility method to start the Super tenant flow.
      */
-    private void startTenantFlow(int tenantId, String tenantDomain) {
+    private void startTenantFlow() {
         PrivilegedCarbonContext.startTenantFlow();
         PrivilegedCarbonContext carbonContext = PrivilegedCarbonContext.getThreadLocalCarbonContext();
         carbonContext.setTenantId(tenantId);
@@ -3648,10 +3658,12 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      */
     @Override
     protected void finalize() throws Throwable {
-        if (cacheManager != null && expiringUserCache != null) {
+        if (cacheManager != null && userDnCache != null) {
+            // Remove the userDN cache, as we created a DN cache per an instance of this class.
+            // Any change in LDAP User Store config, too should invalidate the cache and remove it from memory.
             try {
-                startTenantFlow(tenantId, cacheOwnerTenantDomain);
-                cacheManager.removeCache(expiringUserCache.getName());
+                startTenantFlow();
+                cacheManager.removeCache(userDnCache.getName());
             } finally {
                 PrivilegedCarbonContext.endTenantFlow();
             }
