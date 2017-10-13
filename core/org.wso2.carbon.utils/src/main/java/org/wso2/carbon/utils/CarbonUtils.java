@@ -237,7 +237,9 @@ public class CarbonUtils {
         String carbonHome = System.getProperty(ServerConstants.CARBON_HOME);
         if (carbonHome == null) {
             carbonHome = System.getenv(CarbonConstants.CARBON_HOME_ENV);
-            System.setProperty(ServerConstants.CARBON_HOME, carbonHome);
+            if(carbonHome != null) {
+                System.setProperty(ServerConstants.CARBON_HOME, carbonHome);
+            }
         }
         return carbonHome;
     }
