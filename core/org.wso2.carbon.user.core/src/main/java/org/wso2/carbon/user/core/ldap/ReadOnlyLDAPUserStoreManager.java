@@ -115,7 +115,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
 
     private String cacheExpiryTimeAttribute = ""; //Default: expire with default system wide cache expiry
     private int userCacheSize = MAX_USER_CACHE; //Default: expire cache in one minute
-    private Cache<String, LdapName> userDnCache;
+    private String userDnCacheName;
     protected CacheManager cacheManager;
     protected String tenantDomain;
 
@@ -3523,63 +3523,17 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         }
         try {
             startTenantFlow();
-            String cacheName = USER_CACHE_NAME_PREFIX + this.hashCode();
+            Cache userDnCache = null;
+            userDnCacheName = USER_CACHE_NAME_PREFIX + this.hashCode();
             cacheManager = Caching.getCacheManagerFactory().getCacheManager(USER_CACHE_MANAGER);
 
             // Unconditionally remove the cache, so that it can be reconfigured.
-            cacheManager.removeCache(cacheName);
-
-            long userCacheExpiryMilliseconds = 0L;
-            //We set the User Cache expiry time if it is greater than or equal to zero.
-            //Any negative or Zero value causes the cache to have system wide timeout.
-            boolean isCustomExpiryPresent = false;
-            if (StringUtils.isNotEmpty(cacheExpiryTimeAttribute)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Cache expiry time : " + cacheExpiryTimeAttribute
-                            + " configured for the user DN cache having search base: " + userSearchBase);
-                }
-                try {
-                    userCacheExpiryMilliseconds = Long.parseLong(cacheExpiryTimeAttribute);
-                    isCustomExpiryPresent = true;
-                } catch (NumberFormatException nfe) {
-                    log.error("Could not convert the cache expiry time to Number (long) : " + cacheExpiryTimeAttribute
-                            + " . Will default to system wide expiry settings.", nfe);
-                }
-            }
-            if (isCustomExpiryPresent) {
-                // We use cache builder to create the cache with custom expiry values.
-                if (log.isDebugEnabled()) {
-                    log.debug("Using cache expiry time : " + userCacheExpiryMilliseconds
-                            + " configured for the user DN cache having search base: " + userSearchBase);
-                }
-                CacheBuilder cacheBuilder = cacheManager.createCacheBuilder(cacheName);
-                cacheBuilder.setExpiry(CacheConfiguration.ExpiryType.ACCESSED,
-                        new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
-                        setExpiry(CacheConfiguration.ExpiryType.MODIFIED,
-                                new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
-                        setStoreByValue(false);
-                userDnCache = cacheBuilder.build();
-            } else {
-                // We use system-wide settings to build the cache.
-                if (log.isDebugEnabled()) {
-                    log.debug("Using default configurations for the user DN cache, having search base : "
-                            + userSearchBase);
-                }
-                userDnCache = cacheManager.getCache(cacheName);
-            }
-
-            if (userCacheSize > 0 && userDnCache instanceof CacheImpl) {
-                //Set the cache size if it is positive non zero value.
-                //Set capacity method is only available on Impl.
-                if (log.isDebugEnabled()) {
-                    log.debug(" Setting cache capacity : " + userCacheSize);
-                }
-                ((CacheImpl) userDnCache).setCapacity(userCacheSize);
-            }
+            cacheManager.removeCache(userDnCacheName);
         } finally {
             PrivilegedCarbonContext.endTenantFlow();
         }
     }
+
 
     /**
      * Puts the DN into the cache.
@@ -3588,6 +3542,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      * @param value the LDAP name (DN)
      */
     protected void putToUserCache(String name, LdapName value) {
+        Cache<String, LdapName> userDnCache = createOrGetUserDnCache();
         if (userDnCache == null) {
             //User cache may be null while initializing.
             return;
@@ -3607,6 +3562,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      * @return cached DN, if exists. null if the cache does not contain the DN for the userName.
      */
     protected LdapName getFromUserCache(String userName) {
+        Cache<String, LdapName> userDnCache = createOrGetUserDnCache();
         if (userDnCache == null) {
             //User cache may be null while initializing.
             return null;
@@ -3626,6 +3582,7 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      * @return true if removal was successful.
      */
     protected boolean removeFromUserCache(String userName) {
+        Cache<String, LdapName> userDnCache = createOrGetUserDnCache();
         if (userDnCache == null) {
             //User cache may be null while initializing.
             //Return true as removal result is successfull when there is no cache. Nothing was held.
@@ -3649,6 +3606,69 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
         carbonContext.setTenantDomain(tenantDomain);
     }
 
+
+    /**
+     * Returns the User DN Cache. Creates one if not exists in the cache manager.
+     * Cache manager removes the cache if it is idle and empty for some time. Hence we need to create,
+     * with our owen settings if needed.
+     * @return
+     */
+    private Cache<String, LdapName> createOrGetUserDnCache() {
+        if (cacheManager == null) {
+            return null;
+        }
+
+        Cache<String, LdapName> userDnCache;
+        long userCacheExpiryMilliseconds = 0L;
+        //We set the User Cache expiry time if it is greater than or equal to zero.
+        //Any negative or Zero value causes the cache to have system wide timeout.
+        boolean isCustomExpiryPresent = false;
+        if (StringUtils.isNotEmpty(cacheExpiryTimeAttribute)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Cache expiry time : " + cacheExpiryTimeAttribute
+                        + " configured for the user DN cache having search base: " + userSearchBase);
+            }
+            try {
+                userCacheExpiryMilliseconds = Long.parseLong(cacheExpiryTimeAttribute);
+                isCustomExpiryPresent = true;
+            } catch (NumberFormatException nfe) {
+                log.error("Could not convert the cache expiry time to Number (long) : " + cacheExpiryTimeAttribute
+                        + " . Will default to system wide expiry settings.", nfe);
+            }
+        }
+        if (isCustomExpiryPresent) {
+            // We use cache builder to create the cache with custom expiry values.
+            if (log.isDebugEnabled()) {
+                log.debug("Using cache expiry time : " + userCacheExpiryMilliseconds
+                        + " configured for the user DN cache having search base: " + userSearchBase);
+            }
+            CacheBuilder cacheBuilder = cacheManager.createCacheBuilder(userDnCacheName);
+            cacheBuilder.setExpiry(CacheConfiguration.ExpiryType.ACCESSED,
+                    new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
+                    setExpiry(CacheConfiguration.ExpiryType.MODIFIED,
+                            new CacheConfiguration.Duration(TimeUnit.MILLISECONDS, userCacheExpiryMilliseconds)).
+                    setStoreByValue(false);
+            userDnCache = cacheBuilder.build();
+        } else {
+            // We use system-wide settings to build the cache.
+            if (log.isDebugEnabled()) {
+                log.debug("Using default configurations for the user DN cache, having search base : "
+                        + userSearchBase);
+            }
+            userDnCache = cacheManager.getCache(userDnCacheName);
+        }
+
+        if (userCacheSize > 0 && userDnCache instanceof CacheImpl) {
+            //Set the cache size if it is positive non zero value.
+            //Set capacity method is only available on Impl.
+            if (log.isDebugEnabled()) {
+                log.debug(" Setting cache capacity : " + userCacheSize);
+            }
+            ((CacheImpl) userDnCache).setCapacity(userCacheSize);
+        }
+        return userDnCache;
+    }
+
     /**
      * Removes
      *  1. Current User cache from the respective cache manager.
@@ -3657,12 +3677,12 @@ public class ReadOnlyLDAPUserStoreManager extends AbstractUserStoreManager {
      */
     @Override
     protected void finalize() throws Throwable {
-        if (cacheManager != null && userDnCache != null) {
+        if (cacheManager != null && userDnCacheName != null) {
             // Remove the userDN cache, as we created a DN cache per an instance of this class.
             // Any change in LDAP User Store config, too should invalidate the cache and remove it from memory.
             try {
                 startTenantFlow();
-                cacheManager.removeCache(userDnCache.getName());
+                cacheManager.removeCache(userDnCacheName);
             } finally {
                 PrivilegedCarbonContext.endTenantFlow();
             }
